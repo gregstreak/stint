@@ -251,11 +251,17 @@ export default function App() {
       }} />
 
       <div style={{
-        position: 'absolute', top: 28, left: 0, right: 0,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+        position: 'absolute', top: 20, left: 0, right: 0,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
       }}>
+        <svg width="26" height="26" viewBox="0 0 96 96">
+          <circle cx="48" cy="48" r="32" fill="none" stroke="#1E1E1E" strokeWidth="6"/>
+          <path d="M48 16 A32 32 0 1 1 22 73" fill="none" stroke={accent} strokeWidth="6" strokeLinecap="round"
+            style={{ transition: 'stroke 1s ease' }}/>
+          <circle cx="22" cy="73" r="5" fill={accent} opacity="0.5" style={{ transition: 'fill 1s ease' }}/>
+        </svg>
         <div style={{
-          fontFamily: "'DM Serif Display', serif", fontSize: 15,
+          fontFamily: "'DM Serif Display', serif", fontSize: 14,
           letterSpacing: '0.28em', textTransform: 'uppercase',
           color: accent, transition: 'color 1s ease',
         }}>stint</div>
