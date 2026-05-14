@@ -1,5 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import TimerWorker from './timer.worker.js?worker'
+
+// Inline worker blob — avoids ?worker import issues on iOS Safari
+function createTimerWorker() {
+  const blob = new Blob([`
+    let interval = null;
+    self.onmessage = (e) => {
+      if (e.data.type === 'START') {
+        if (interval) return;
+        interval = setInterval(() => self.postMessage({ type: 'TICK' }), 1000);
+      } else if (e.data.type === 'STOP') {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+  `], { type: 'application/javascript' })
+  return new Worker(URL.createObjectURL(blob))
+}
 
 const MODES = {
   work:  { label: 'Focus',       default: 25, color: '#C8A97E' },
@@ -77,7 +93,7 @@ export default function App() {
 
   // Spawn Web Worker
   useEffect(() => {
-    workerRef.current = new TimerWorker()
+    workerRef.current = createTimerWorker()
     workerRef.current.onmessage = () => {
       setSeconds(s => {
         if (s <= 1) {
