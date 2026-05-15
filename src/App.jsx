@@ -1,10 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 const MODES = {
-  work:  { label: 'Focus',       default: 25, color: '#C8A97E' },
+  work:  { label: 'Focus',       default: 25, color: '#A8C4E0' },
   short: { label: 'Short Break', default: 5,  color: '#7EB5A6' },
-  long:  { label: 'Long Break',  default: 20, color: '#8FA8C8' },
+  long:  { label: 'Long Break',  default: 20, color: '#A8C4E0' },
 }
+
+const BG       = '#0D1B2A'
+const SURFACE  = '#0F2033'
+const SURFACE2 = '#122540'
+const TRACK    = '#1A2D42'
+const TEXT     = '#D8E8F4'
+const MUTED    = '#2A4060'
 
 const SESSIONS_BEFORE_LONG = 4
 
@@ -126,8 +133,8 @@ export default function App() {
     startTimeRef.current = Date.now()
     startSecsRef.current = secondsRef.current
     intervalRef.current = setInterval(() => {
-      const elapsed    = Math.floor((Date.now() - startTimeRef.current) / 1000)
-      const remaining  = startSecsRef.current - elapsed
+      const elapsed   = Math.floor((Date.now() - startTimeRef.current) / 1000)
+      const remaining = startSecsRef.current - elapsed
       if (remaining <= 0) {
         setSeconds(0)
         secondsRef.current = 0
@@ -142,8 +149,8 @@ export default function App() {
   useEffect(() => {
     const onVisible = () => {
       if (runningRef.current && startTimeRef.current) {
-        const elapsed    = Math.floor((Date.now() - startTimeRef.current) / 1000)
-        const remaining  = startSecsRef.current - elapsed
+        const elapsed   = Math.floor((Date.now() - startTimeRef.current) / 1000)
+        const remaining = startSecsRef.current - elapsed
         if (remaining <= 0) {
           handleFinish()
         } else {
@@ -224,62 +231,61 @@ export default function App() {
   const R        = 130
   const C        = 2 * Math.PI * R
   const dash     = progress * C
-
-  const btn = { WebkitAppearance: 'none', cursor: 'pointer' }
+  const btn      = { WebkitAppearance: 'none', cursor: 'pointer' }
 
   return (
     <div style={{
-      minHeight: '100vh',
-      background: '#0E0E0E',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
+      minHeight: '100svh',
+      background: BG,
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
       fontFamily: "'DM Sans', sans-serif",
-      color: '#E8E4DC',
+      color: TEXT,
       padding: '24px',
-      userSelect: 'none',
-      WebkitUserSelect: 'none',
-      position: 'relative',
-      overflow: 'hidden',
+      userSelect: 'none', WebkitUserSelect: 'none',
+      position: 'relative', overflow: 'hidden',
     }}>
 
+      {/* Ambient glow */}
       <div style={{
         position: 'absolute', width: 420, height: 420, borderRadius: '50%',
-        background: `radial-gradient(circle, ${accent}16 0%, transparent 70%)`,
+        background: `radial-gradient(circle, ${accent}12 0%, transparent 70%)`,
         transition: 'background 1.4s ease', pointerEvents: 'none',
       }} />
 
+      {/* Wordmark */}
       <div style={{
-        position: 'absolute', top: 20, left: 0, right: 0,
+        position: 'absolute', top: 24, left: 0, right: 0,
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
       }}>
         <svg width="26" height="26" viewBox="0 0 96 96">
-          <circle cx="48" cy="48" r="32" fill="none" stroke="#1E1E1E" strokeWidth="6"/>
-          <path d="M48 16 A32 32 0 1 1 22 73" fill="none" stroke={accent} strokeWidth="6" strokeLinecap="round"
-            style={{ transition: 'stroke 1s ease' }}/>
-          <circle cx="22" cy="73" r="5" fill={accent} opacity="0.5" style={{ transition: 'fill 1s ease' }}/>
+          <circle cx="48" cy="48" r="32" fill="none" stroke={TRACK} strokeWidth="5"/>
+          <path d="M48,16 A32,32 0 1,1 41.5,16.8" fill="none" stroke={accent}
+            strokeWidth="5" strokeLinecap="round" style={{ transition: 'stroke 1s ease' }}/>
+          <circle cx="41.5" cy="16.8" r="4" fill={accent} opacity="0.6"
+            style={{ transition: 'fill 1s ease' }}/>
         </svg>
         <div style={{
           fontFamily: "'DM Serif Display', serif", fontSize: 14,
           letterSpacing: '0.28em', textTransform: 'uppercase',
           color: accent, transition: 'color 1s ease',
         }}>stint</div>
-        <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#333' }}>
+        <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: MUTED }}>
           Do one thing.
         </div>
       </div>
 
+      {/* Mode tabs */}
       <div style={{
         display: 'flex', gap: 3, marginBottom: 36,
-        background: '#141414', borderRadius: 10, padding: 4,
+        background: SURFACE, borderRadius: 10, padding: 4,
         position: 'relative', zIndex: 1,
       }}>
         {Object.entries(MODES).map(([key, val]) => (
           <button key={key} onClick={() => switchMode(key)} style={{
             ...btn,
-            background: mode === key ? '#1E1E1E' : 'transparent',
-            color: mode === key ? accent : '#3A3A3A',
+            background: mode === key ? SURFACE2 : 'transparent',
+            color: mode === key ? accent : MUTED,
             border: 'none', padding: '7px 16px', borderRadius: 7,
             fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase',
             transition: 'all 0.25s ease', fontFamily: "'DM Sans', sans-serif", fontWeight: 500,
@@ -287,9 +293,10 @@ export default function App() {
         ))}
       </div>
 
+      {/* Ring + timer */}
       <div style={{ position: 'relative', zIndex: 1 }}>
         <svg width={310} height={310} style={{ transform: 'rotate(-90deg)', display: 'block' }}>
-          <circle cx={155} cy={155} r={R} fill="none" stroke="#1C1C1C" strokeWidth={3} />
+          <circle cx={155} cy={155} r={R} fill="none" stroke={TRACK} strokeWidth={3} />
           <circle cx={155} cy={155} r={R} fill="none" stroke={accent} strokeWidth={2.5}
             strokeLinecap="round" strokeDasharray={`${dash} ${C}`}
             style={{ transition: 'stroke-dasharray 0.6s linear, stroke 1s ease' }} />
@@ -302,10 +309,10 @@ export default function App() {
           <div style={{
             fontFamily: "'DM Mono', monospace", fontSize: 70, fontWeight: 300,
             letterSpacing: '0.02em', lineHeight: 1,
-            color: justFinished ? accent : '#E8E4DC', transition: 'color 0.5s ease',
+            color: justFinished ? accent : TEXT, transition: 'color 0.5s ease',
           }}>
             {pad(mins)}
-            <span style={{ opacity: running ? 1 : 0.25, transition: 'opacity 0.4s' }}>:</span>
+            <span style={{ opacity: running ? 1 : 0.2, transition: 'opacity 0.4s' }}>:</span>
             {pad(secs)}
           </div>
 
@@ -313,14 +320,14 @@ export default function App() {
             {Array.from({ length: SESSIONS_BEFORE_LONG }).map((_, i) => (
               <div key={i} style={{
                 width: 5, height: 5, borderRadius: '50%',
-                background: i < (sessions % SESSIONS_BEFORE_LONG) ? accent : '#222',
+                background: i < (sessions % SESSIONS_BEFORE_LONG) ? accent : TRACK,
                 transition: 'background 0.5s ease',
               }} />
             ))}
           </div>
 
           <div style={{
-            fontSize: 10, color: '#363636', letterSpacing: '0.14em',
+            fontSize: 10, color: MUTED, letterSpacing: '0.14em',
             marginTop: 10, textTransform: 'uppercase',
           }}>
             {sessions === 0 ? 'Ready' : `${sessions} ${sessions === 1 ? 'session' : 'sessions'} done`}
@@ -328,10 +335,11 @@ export default function App() {
         </div>
       </div>
 
+      {/* Controls */}
       <div style={{ display: 'flex', gap: 14, marginTop: 36, position: 'relative', zIndex: 1, alignItems: 'center' }}>
         <button onClick={handleReset} style={{
           ...btn, width: 44, height: 44, borderRadius: '50%',
-          background: '#141414', border: '1px solid #222', color: '#444', fontSize: 18,
+          background: SURFACE, border: `1px solid ${TRACK}`, color: MUTED, fontSize: 18,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>↺</button>
 
@@ -339,30 +347,31 @@ export default function App() {
           ...btn, width: 68, height: 68, borderRadius: '50%',
           background: running ? 'transparent' : accent,
           border: running ? `1.5px solid ${accent}` : 'none',
-          color: running ? accent : '#0E0E0E', fontSize: 22,
+          color: running ? accent : BG, fontSize: 22,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontWeight: 700, boxShadow: running ? 'none' : `0 0 32px ${accent}3A`,
+          fontWeight: 700, boxShadow: running ? 'none' : `0 0 32px ${accent}40`,
           transition: 'all 0.25s ease',
         }}>{running ? '⏸' : '▶'}</button>
 
         <button onClick={() => { setTempSettings({ ...settings }); setShowSettings(true) }} style={{
           ...btn, width: 44, height: 44, borderRadius: '50%',
-          background: '#141414', border: '1px solid #222', color: '#444', fontSize: 16,
+          background: SURFACE, border: `1px solid ${TRACK}`, color: MUTED, fontSize: 16,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>⚙</button>
       </div>
 
+      {/* Settings modal */}
       {showSettings && (
         <div onClick={() => setShowSettings(false)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+          position: 'fixed', inset: 0, background: 'rgba(5,12,22,0.85)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 100, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         }}>
           <div onClick={e => e.stopPropagation()} style={{
-            background: '#111', border: '1px solid #1E1E1E',
+            background: SURFACE, border: `1px solid ${TRACK}`,
             borderRadius: 18, padding: '32px 28px', width: 300,
           }}>
-            <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, marginBottom: 30, color: '#E8E4DC' }}>
+            <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, marginBottom: 30, color: TEXT }}>
               Settings
             </div>
             {[
@@ -371,20 +380,20 @@ export default function App() {
               { key: 'long',  label: 'Long break',  min: 1, max: 60 },
             ].map(({ key, label, min, max }) => (
               <div key={key} style={{ marginBottom: 22 }}>
-                <div style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#444', marginBottom: 10 }}>{label}</div>
+                <div style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: MUTED, marginBottom: 10 }}>{label}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <button onClick={() => setTempSettings(s => ({ ...s, [key]: Math.max(min, s[key] - 1) }))}
-                    style={{ ...btn, background: '#1A1A1A', border: '1px solid #2A2A2A', color: '#666', width: 30, height: 30, borderRadius: 8, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                    style={{ ...btn, background: SURFACE2, border: `1px solid ${TRACK}`, color: TEXT, width: 30, height: 30, borderRadius: 8, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
                   <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 26, color: MODES[key].color, width: 44, textAlign: 'center' }}>{tempSettings[key]}</div>
                   <button onClick={() => setTempSettings(s => ({ ...s, [key]: Math.min(max, s[key] + 1) }))}
-                    style={{ ...btn, background: '#1A1A1A', border: '1px solid #2A2A2A', color: '#666', width: 30, height: 30, borderRadius: 8, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                  <span style={{ fontSize: 10, color: '#333', letterSpacing: '0.1em' }}>min</span>
+                    style={{ ...btn, background: SURFACE2, border: `1px solid ${TRACK}`, color: TEXT, width: 30, height: 30, borderRadius: 8, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                  <span style={{ fontSize: 10, color: MUTED, letterSpacing: '0.1em' }}>min</span>
                 </div>
               </div>
             ))}
             <div style={{ display: 'flex', gap: 10, marginTop: 30 }}>
-              <button onClick={() => setShowSettings(false)} style={{ ...btn, flex: 1, padding: '11px', background: 'transparent', border: '1px solid #222', borderRadius: 10, color: '#444', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
-              <button onClick={saveSettings} style={{ ...btn, flex: 1, padding: '11px', background: accent, border: 'none', borderRadius: 10, color: '#0E0E0E', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: "'DM Sans', sans-serif" }}>Save</button>
+              <button onClick={() => setShowSettings(false)} style={{ ...btn, flex: 1, padding: '11px', background: 'transparent', border: `1px solid ${TRACK}`, borderRadius: 10, color: MUTED, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+              <button onClick={saveSettings} style={{ ...btn, flex: 1, padding: '11px', background: accent, border: 'none', borderRadius: 10, color: BG, fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: "'DM Sans', sans-serif" }}>Save</button>
             </div>
           </div>
         </div>
