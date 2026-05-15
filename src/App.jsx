@@ -17,33 +17,28 @@ const SESSIONS_BEFORE_LONG = 4
 
 function pad(n) { return String(n).padStart(2, '0') }
 
-function beep(ctx, freq, dur, vol) {
-  if (!ctx) return
-  try {
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.frequency.value = freq || 520
-    osc.type = 'sine'
-    gain.gain.setValueAtTime(vol || 0.7, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (dur || 0.3))
-    osc.start(ctx.currentTime)
-    osc.stop(ctx.currentTime + (dur || 0.3))
-  } catch (e) {}
+// Audio file alarm — more reliable than AudioContext on iOS
+let alarmAudio = null
+function getAlarm() {
+  if (!alarmAudio) {
+    alarmAudio = new Audio('/bowl-chime-4x.wav')
+    alarmAudio.preload = 'auto'
+  }
+  return alarmAudio
 }
 
-function chime(ctx) {
-  if (!ctx) return
-  // Three-tone alarm, repeated 5 times with gap between sets
-  const REPS = 5
-  const GAP  = 1100 // ms between repetitions
-  for (let i = 0; i < REPS; i++) {
-    const base = i * GAP
-    setTimeout(() => beep(ctx, 880, 0.35, 0.9), base)
-    setTimeout(() => beep(ctx, 660, 0.35, 0.85), base + 380)
-    setTimeout(() => beep(ctx, 550, 0.5,  0.8), base + 700)
-  }
+function chime() {
+  try {
+    const audio = getAlarm()
+    audio.currentTime = 0
+    audio.volume = 1.0
+    const playPromise = audio.play()
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // Autoplay blocked — will be silent but visual alert still shows
+      })
+    }
+  } catch (e) {}
 }
 
 function notify(title, body) {
@@ -67,7 +62,6 @@ export default function App() {
   const [alert, setAlert]               = useState(null) // { message, color }
 
   const intervalRef  = useRef(null)
-  const audioCtxRef  = useRef(null)
   const modeRef      = useRef(mode)
   const settingsRef  = useRef(settings)
   const sessionsRef  = useRef(sessions)
@@ -82,27 +76,9 @@ export default function App() {
   useEffect(() => { sessionsRef.current = sessions }, [sessions])
   useEffect(() => { secondsRef.current = seconds }, [seconds])
 
-  const getAudioCtx = useCallback(() => {
-    try {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
-      }
-      if (audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume().catch(() => {})
-      }
-    } catch (e) {}
-    return audioCtxRef.current
-  }, [])
-
   const triggerAlarm = useCallback((message, color) => {
-    // Resume audio context and play chime
-    try {
-      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume().then(() => chime(audioCtxRef.current)).catch(() => {})
-      } else {
-        chime(audioCtxRef.current)
-      }
-    } catch (e) {}
+    // Play audio file alarm
+    chime()
     // Show visual alert banner
     setAlert({ message, color })
     setTimeout(() => setAlert(null), 4000)
@@ -234,7 +210,8 @@ export default function App() {
   useEffect(() => { return () => clearInterval(intervalRef.current) }, [])
 
   const handleStartPause = () => {
-    getAudioCtx()
+    // Preload audio on first user gesture
+    try { getAlarm().load() } catch(e) {}
     if (justFinished) return
     if (running) {
       clearInterval(intervalRef.current)
