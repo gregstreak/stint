@@ -110,21 +110,45 @@ export default function App() {
       const nextMode = next % SESSIONS_BEFORE_LONG === 0 ? 'long' : 'short'
       notify('Stint', nextMode === 'long' ? 'Long break time.' : 'Short break time.')
       setTimeout(() => {
-        setMode(nextMode)
         const ns = currentSettings[nextMode] * 60
+        setMode(nextMode)
+        modeRef.current = nextMode
         setSeconds(ns)
         secondsRef.current = ns
         setJustFinished(false)
-      }, 1200)
+        runningRef.current = true
+        setRunning(true)
+        startTimeRef.current = Date.now()
+        startSecsRef.current = ns
+        clearInterval(intervalRef.current)
+        intervalRef.current = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
+          const remaining = startSecsRef.current - elapsed
+          if (remaining <= 0) { setSeconds(0); secondsRef.current = 0; handleFinish() }
+          else { setSeconds(remaining); secondsRef.current = remaining }
+        }, 500)
+      }, 1500)
     } else {
       notify('Stint', 'Back to work.')
       setTimeout(() => {
-        setMode('work')
         const ns = currentSettings.work * 60
+        setMode('work')
+        modeRef.current = 'work'
         setSeconds(ns)
         secondsRef.current = ns
         setJustFinished(false)
-      }, 1200)
+        runningRef.current = true
+        setRunning(true)
+        startTimeRef.current = Date.now()
+        startSecsRef.current = ns
+        clearInterval(intervalRef.current)
+        intervalRef.current = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
+          const remaining = startSecsRef.current - elapsed
+          if (remaining <= 0) { setSeconds(0); secondsRef.current = 0; handleFinish() }
+          else { setSeconds(remaining); secondsRef.current = remaining }
+        }, 500)
+      }, 1500)
     }
   }, [])
 
