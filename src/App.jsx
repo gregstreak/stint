@@ -339,24 +339,26 @@ export default function App() {
       <div style={{ display: 'flex', gap: 14, marginTop: 36, position: 'relative', zIndex: 1, alignItems: 'center' }}>
         <button onClick={handleReset} style={{
           ...btn, width: 44, height: 44, borderRadius: '50%',
-          background: SURFACE, border: `1px solid ${TRACK}`, color: MUTED, fontSize: 18,
+          background: '#122540', border: '1px solid #2A4A6A', color: '#6A9ABB', fontSize: 18,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'all 0.2s',
         }}>↺</button>
 
         <button onClick={handleStartPause} style={{
           ...btn, width: 68, height: 68, borderRadius: '50%',
-          background: running ? 'transparent' : accent,
-          border: running ? `1.5px solid ${accent}` : 'none',
-          color: running ? accent : BG, fontSize: 22,
+          background: running ? 'transparent' : '#C8DDF0',
+          border: running ? `1.5px solid #C8DDF0` : 'none',
+          color: running ? '#C8DDF0' : BG, fontSize: 22,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontWeight: 700, boxShadow: running ? 'none' : `0 0 32px ${accent}40`,
+          fontWeight: 700, boxShadow: running ? 'none' : '0 0 32px #A8C4E050',
           transition: 'all 0.25s ease',
         }}>{running ? '⏸' : '▶'}</button>
 
         <button onClick={() => { setTempSettings({ ...settings }); setShowSettings(true) }} style={{
           ...btn, width: 44, height: 44, borderRadius: '50%',
-          background: SURFACE, border: `1px solid ${TRACK}`, color: MUTED, fontSize: 16,
+          background: '#122540', border: '1px solid #2A4A6A', color: '#6A9ABB', fontSize: 16,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'all 0.2s',
         }}>⚙</button>
       </div>
 
