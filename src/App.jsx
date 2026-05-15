@@ -260,9 +260,9 @@ export default function App() {
       }}>
         <svg width="26" height="26" viewBox="0 0 96 96">
           <circle cx="48" cy="48" r="32" fill="none" stroke={TRACK} strokeWidth="5"/>
-          <path d="M48,16 A32,32 0 1,1 41.5,16.8" fill="none" stroke={accent}
+          <path d="M48,16 A32,32 0 1,1 22.48,27.52" fill="none" stroke={accent}
             strokeWidth="5" strokeLinecap="round" style={{ transition: 'stroke 1s ease' }}/>
-          <circle cx="41.5" cy="16.8" r="4" fill={accent} opacity="0.6"
+          <circle cx="22.48" cy="27.52" r="4" fill={accent} opacity="0.6"
             style={{ transition: 'fill 1s ease' }}/>
         </svg>
         <div style={{
