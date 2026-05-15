@@ -35,14 +35,15 @@ function beep(ctx, freq, dur, vol) {
 
 function chime(ctx) {
   if (!ctx) return
-  // Three-tone chime, repeated twice for audibility
-  const play = (offset) => {
-    beep(ctx, 660, 0.3, 0.7)
-    setTimeout(() => beep(ctx, 880, 0.3, 0.6), 350)
-    setTimeout(() => beep(ctx, 1100, 0.4, 0.5), 700)
+  // Three-tone alarm, repeated 5 times with gap between sets
+  const REPS = 5
+  const GAP  = 1100 // ms between repetitions
+  for (let i = 0; i < REPS; i++) {
+    const base = i * GAP
+    setTimeout(() => beep(ctx, 880, 0.35, 0.9), base)
+    setTimeout(() => beep(ctx, 660, 0.35, 0.85), base + 380)
+    setTimeout(() => beep(ctx, 550, 0.5,  0.8), base + 700)
   }
-  play(0)
-  setTimeout(() => play(0), 1200)
 }
 
 function notify(title, body) {
