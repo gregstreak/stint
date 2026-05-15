@@ -26,24 +26,30 @@ function beep(ctx, freq, dur, vol) {
     gain.connect(ctx.destination)
     osc.frequency.value = freq || 520
     osc.type = 'sine'
-    gain.gain.setValueAtTime(vol || 0.4, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (dur || 0.18))
+    gain.gain.setValueAtTime(vol || 0.7, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (dur || 0.3))
     osc.start(ctx.currentTime)
-    osc.stop(ctx.currentTime + (dur || 0.18))
+    osc.stop(ctx.currentTime + (dur || 0.3))
   } catch (e) {}
 }
 
 function chime(ctx) {
   if (!ctx) return
-  beep(ctx, 660, 0.2, 0.35)
-  setTimeout(() => beep(ctx, 880, 0.2, 0.25), 220)
-  setTimeout(() => beep(ctx, 1100, 0.3, 0.2), 420)
+  // Three-tone chime, repeated twice for audibility
+  const play = (offset) => {
+    beep(ctx, 660, 0.3, 0.7)
+    setTimeout(() => beep(ctx, 880, 0.3, 0.6), 350)
+    setTimeout(() => beep(ctx, 1100, 0.4, 0.5), 700)
+  }
+  play(0)
+  setTimeout(() => play(0), 1200)
 }
 
 function notify(title, body) {
   try {
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      new Notification(title, { body, silent: true })
+      // silent: false so the system plays the default notification sound
+      new Notification(title, { body, silent: false, requireInteraction: false })
     }
   } catch (e) {}
 }
@@ -57,6 +63,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [tempSettings, setTempSettings] = useState({ work: 25, short: 5, long: 20 })
   const [justFinished, setJustFinished] = useState(false)
+  const [alert, setAlert]               = useState(null) // { message, color }
 
   const intervalRef  = useRef(null)
   const audioCtxRef  = useRef(null)
@@ -65,8 +72,9 @@ export default function App() {
   const sessionsRef  = useRef(sessions)
   const runningRef   = useRef(false)
   const secondsRef   = useRef(25 * 60)
-  const startTimeRef = useRef(null)
-  const startSecsRef = useRef(null)
+  const startTimeRef  = useRef(null)
+  const startSecsRef  = useRef(null)
+  const titleFlashRef = useRef(null)
 
   useEffect(() => { modeRef.current = mode }, [mode])
   useEffect(() => { settingsRef.current = settings }, [settings])
@@ -79,10 +87,37 @@ export default function App() {
         audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
       }
       if (audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume()
+        audioCtxRef.current.resume().catch(() => {})
       }
     } catch (e) {}
     return audioCtxRef.current
+  }, [])
+
+  const triggerAlarm = useCallback((message, color) => {
+    // Resume audio context and play chime
+    try {
+      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume().then(() => chime(audioCtxRef.current)).catch(() => {})
+      } else {
+        chime(audioCtxRef.current)
+      }
+    } catch (e) {}
+    // Show visual alert banner
+    setAlert({ message, color })
+    setTimeout(() => setAlert(null), 4000)
+    // Flash tab title 8 times
+    clearInterval(titleFlashRef.current)
+    let flashes = 0
+    const flashMsg = `⏰ ${message}`
+    const original = document.title
+    titleFlashRef.current = setInterval(() => {
+      document.title = flashes % 2 === 0 ? flashMsg : original
+      flashes++
+      if (flashes >= 16) {
+        clearInterval(titleFlashRef.current)
+        document.title = original
+      }
+    }, 600)
   }, [])
 
   useEffect(() => {
@@ -98,7 +133,6 @@ export default function App() {
     runningRef.current = false
     setRunning(false)
     setJustFinished(true)
-    chime(audioCtxRef.current)
 
     const currentMode     = modeRef.current
     const currentSessions = sessionsRef.current
@@ -108,7 +142,9 @@ export default function App() {
       const next = currentSessions + 1
       setSessions(next)
       const nextMode = next % SESSIONS_BEFORE_LONG === 0 ? 'long' : 'short'
-      notify('Stint', nextMode === 'long' ? 'Long break time.' : 'Short break time.')
+      const msg = nextMode === 'long' ? 'Long break — step away.' : 'Short break — rest up.'
+      triggerAlarm(msg, '#7EB5A6')
+      notify('Stint', msg)
       setTimeout(() => {
         const ns = currentSettings[nextMode] * 60
         setMode(nextMode)
@@ -129,6 +165,7 @@ export default function App() {
         }, 500)
       }, 1500)
     } else {
+      triggerAlarm('Back to work.', '#A8C4E0')
       notify('Stint', 'Back to work.')
       setTimeout(() => {
         const ns = currentSettings.work * 60
@@ -150,7 +187,7 @@ export default function App() {
         }, 500)
       }, 1500)
     }
-  }, [])
+  }, [triggerAlarm])
 
   const startTimer = useCallback(() => {
     clearInterval(intervalRef.current)
@@ -385,6 +422,26 @@ export default function App() {
           transition: 'all 0.2s',
         }}>⚙</button>
       </div>
+
+      {/* Alert banner */}
+      {alert && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0,
+          background: alert.color,
+          color: BG,
+          padding: '16px 24px',
+          textAlign: 'center',
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 14,
+          fontWeight: 600,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          zIndex: 200,
+          animation: 'slideDown 0.3s ease',
+        }}>
+          {alert.message}
+        </div>
+      )}
 
       {/* Settings modal */}
       {showSettings && (
