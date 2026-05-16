@@ -12,86 +12,100 @@ const SURFACE2 = '#122540'
 const TRACK    = '#1A2D42'
 const TEXT     = '#D8E8F4'
 const MUTED    = '#2A4060'
-
 const SESSIONS_BEFORE_LONG = 4
 
 function pad(n) { return String(n).padStart(2, '0') }
 
-// Audio file alarm — more reliable than AudioContext on iOS
-let alarmAudio = null
-function getAlarm() {
-  if (!alarmAudio) {
-    alarmAudio = new Audio('/bowl-chime-4x.wav')
-    alarmAudio.preload = 'auto'
-  }
-  return alarmAudio
+// Detect native iOS wrapper
+const isNative = () => !!window.webkit?.messageHandlers?.stint
+
+// Send action to Swift
+function toSwift(action, data = {}) {
+  try {
+    window.webkit.messageHandlers.stint.postMessage(JSON.stringify({ action, ...data }))
+  } catch(e) {}
 }
 
-function chime() {
+// Browser-only audio fallback
+function getAlarm() {
   try {
-    const audio = getAlarm()
-    audio.currentTime = 0
-    audio.volume = 1.0
-    const playPromise = audio.play()
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // Autoplay blocked — will be silent but visual alert still shows
-      })
-    }
-  } catch (e) {}
+    const a = new Audio('/bowl-chime-4x.wav')
+    a.preload = 'auto'
+    return a
+  } catch(e) { return null }
+}
+let alarmAudio = null
+
+function playAlarm() {
+  if (!alarmAudio) alarmAudio = getAlarm()
+  try {
+    if (alarmAudio) { alarmAudio.currentTime = 0; alarmAudio.play() }
+  } catch(e) {}
 }
 
 function notify(title, body) {
   try {
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      // silent: false so the system plays the default notification sound
-      new Notification(title, { body, silent: false, requireInteraction: false })
+      new Notification(title, { body, silent: false })
     }
-  } catch (e) {}
+  } catch(e) {}
 }
 
 export default function App() {
   const [mode, setMode]         = useState('work')
   const [settings, setSettings] = useState({ work: 25, short: 5, long: 20 })
   const [seconds, setSeconds]   = useState(25 * 60)
+  const [total, setTotal]       = useState(25 * 60)
   const [running, setRunning]   = useState(false)
   const [sessions, setSessions] = useState(0)
   const [showSettings, setShowSettings] = useState(false)
   const [tempSettings, setTempSettings] = useState({ work: 25, short: 5, long: 20 })
-  const [justFinished, setJustFinished] = useState(false)
-  const [alert, setAlert]               = useState(null) // { message, color }
+  const [alert, setAlert]       = useState(null)
 
+  // Browser-only timer refs
   const intervalRef  = useRef(null)
-  const modeRef      = useRef(mode)
   const settingsRef  = useRef(settings)
+  const modeRef      = useRef(mode)
   const sessionsRef  = useRef(sessions)
-  const runningRef   = useRef(false)
   const secondsRef   = useRef(25 * 60)
-  const startTimeRef  = useRef(null)
-  const startSecsRef  = useRef(null)
+  const runningRef   = useRef(false)
+  const startTimeRef = useRef(null)
+  const startSecsRef = useRef(null)
   const titleFlashRef = useRef(null)
 
-  useEffect(() => { modeRef.current = mode }, [mode])
   useEffect(() => { settingsRef.current = settings }, [settings])
+  useEffect(() => { modeRef.current = mode }, [mode])
   useEffect(() => { sessionsRef.current = sessions }, [sessions])
   useEffect(() => { secondsRef.current = seconds }, [seconds])
 
-  const triggerAlarm = useCallback((message, color) => {
-    // Notify native iOS wrapper if available
-    try {
-      if (window.webkit?.messageHandlers?.alarm) {
-        window.webkit.messageHandlers.alarm.postMessage('ring')
-      } else {
-        // Fallback: play audio file directly in browser
-        chime()
-      }
-    } catch (e) {
-      chime()
+  // Expose stintUpdate for Swift to call
+  useEffect(() => {
+    window.stintUpdate = (data) => {
+      setSeconds(data.minutes * 60 + data.seconds)
+      setTotal(data.total)
+      setMode(data.mode)
+      setSessions(data.sessions)
+      setRunning(data.running)
+      secondsRef.current = data.minutes * 60 + data.seconds
+      modeRef.current = data.mode
+      runningRef.current = data.running
     }
-    // Show visual alert banner
+    return () => { window.stintUpdate = null }
+  }, [])
+
+  // Notification permission
+  useEffect(() => {
+    try {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        Notification.requestPermission()
+      }
+    } catch(e) {}
+  }, [])
+
+  // Browser-only: show alert banner and flash title
+  const triggerAlert = useCallback((message, color) => {
     setAlert({ message, color })
     setTimeout(() => setAlert(null), 4000)
-    // Flash tab title 8 times
     clearInterval(titleFlashRef.current)
     let flashes = 0
     const flashMsg = `⏰ ${message}`
@@ -99,49 +113,35 @@ export default function App() {
     titleFlashRef.current = setInterval(() => {
       document.title = flashes % 2 === 0 ? flashMsg : original
       flashes++
-      if (flashes >= 16) {
-        clearInterval(titleFlashRef.current)
-        document.title = original
-      }
+      if (flashes >= 16) { clearInterval(titleFlashRef.current); document.title = original }
     }, 600)
   }, [])
 
-  useEffect(() => {
-    try {
-      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-        Notification.requestPermission()
-      }
-    } catch (e) {}
-  }, [])
-
+  // Browser-only timer finish
   const handleFinish = useCallback(() => {
     clearInterval(intervalRef.current)
     runningRef.current = false
     setRunning(false)
-    setJustFinished(true)
+    playAlarm()
 
-    const currentMode     = modeRef.current
+    const currentMode = modeRef.current
     const currentSessions = sessionsRef.current
     const currentSettings = settingsRef.current
 
     if (currentMode === 'work') {
       const next = currentSessions + 1
       setSessions(next)
+      sessionsRef.current = next
       const nextMode = next % SESSIONS_BEFORE_LONG === 0 ? 'long' : 'short'
       const msg = nextMode === 'long' ? 'Long break — step away.' : 'Short break — rest up.'
-      triggerAlarm(msg, '#7EB5A6')
+      triggerAlert(msg, '#7EB5A6')
       notify('Stint', msg)
       setTimeout(() => {
         const ns = currentSettings[nextMode] * 60
-        setMode(nextMode)
-        modeRef.current = nextMode
-        setSeconds(ns)
-        secondsRef.current = ns
-        setJustFinished(false)
-        runningRef.current = true
-        setRunning(true)
-        startTimeRef.current = Date.now()
-        startSecsRef.current = ns
+        setMode(nextMode); modeRef.current = nextMode
+        setTotal(ns); setSeconds(ns); secondsRef.current = ns
+        runningRef.current = true; setRunning(true)
+        startTimeRef.current = Date.now(); startSecsRef.current = ns
         clearInterval(intervalRef.current)
         intervalRef.current = setInterval(() => {
           const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
@@ -151,19 +151,14 @@ export default function App() {
         }, 500)
       }, 1500)
     } else {
-      triggerAlarm('Back to work.', '#A8C4E0')
+      triggerAlert('Back to work.', '#A8C4E0')
       notify('Stint', 'Back to work.')
       setTimeout(() => {
         const ns = currentSettings.work * 60
-        setMode('work')
-        modeRef.current = 'work'
-        setSeconds(ns)
-        secondsRef.current = ns
-        setJustFinished(false)
-        runningRef.current = true
-        setRunning(true)
-        startTimeRef.current = Date.now()
-        startSecsRef.current = ns
+        setMode('work'); modeRef.current = 'work'
+        setTotal(ns); setSeconds(ns); secondsRef.current = ns
+        runningRef.current = true; setRunning(true)
+        startTimeRef.current = Date.now(); startSecsRef.current = ns
         clearInterval(intervalRef.current)
         intervalRef.current = setInterval(() => {
           const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
@@ -173,43 +168,37 @@ export default function App() {
         }, 500)
       }, 1500)
     }
-  }, [triggerAlarm])
+  }, [triggerAlert])
 
-  const startTimer = useCallback(() => {
+  // Browser-only start timer
+  const startBrowserTimer = useCallback(() => {
     clearInterval(intervalRef.current)
     startTimeRef.current = Date.now()
     startSecsRef.current = secondsRef.current
     intervalRef.current = setInterval(() => {
-      const elapsed   = Math.floor((Date.now() - startTimeRef.current) / 1000)
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
       const remaining = startSecsRef.current - elapsed
-      if (remaining <= 0) {
-        setSeconds(0)
-        secondsRef.current = 0
-        handleFinish()
-      } else {
-        setSeconds(remaining)
-        secondsRef.current = remaining
-      }
+      if (remaining <= 0) { setSeconds(0); secondsRef.current = 0; handleFinish() }
+      else { setSeconds(remaining); secondsRef.current = remaining }
     }, 500)
   }, [handleFinish])
 
+  // Page visibility resync (browser only)
   useEffect(() => {
+    if (isNative()) return
     const onVisible = () => {
       if (runningRef.current && startTimeRef.current) {
-        const elapsed   = Math.floor((Date.now() - startTimeRef.current) / 1000)
+        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
         const remaining = startSecsRef.current - elapsed
-        if (remaining <= 0) {
-          handleFinish()
-        } else {
-          setSeconds(remaining)
-          secondsRef.current = remaining
-        }
+        if (remaining <= 0) handleFinish()
+        else { setSeconds(remaining); secondsRef.current = remaining }
       }
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [handleFinish])
 
+  // Page title update
   useEffect(() => {
     const m = pad(Math.floor(seconds / 60))
     const s = pad(seconds % 60)
@@ -219,39 +208,44 @@ export default function App() {
   useEffect(() => { return () => clearInterval(intervalRef.current) }, [])
 
   const handleStartPause = () => {
-    // Preload audio on first user gesture
-    try { getAlarm().load() } catch(e) {}
-    if (justFinished) return
-    if (running) {
-      clearInterval(intervalRef.current)
-      runningRef.current = false
-      setRunning(false)
+    if (isNative()) {
+      toSwift(running ? 'pause' : 'start')
     } else {
-      runningRef.current = true
-      setRunning(true)
-      startTimer()
+      if (running) {
+        clearInterval(intervalRef.current)
+        runningRef.current = false
+        setRunning(false)
+      } else {
+        runningRef.current = true
+        setRunning(true)
+        startBrowserTimer()
+      }
     }
   }
 
   const handleReset = () => {
-    clearInterval(intervalRef.current)
-    runningRef.current = false
-    setRunning(false)
-    setJustFinished(false)
-    const ns = settings[mode] * 60
-    setSeconds(ns)
-    secondsRef.current = ns
+    if (isNative()) {
+      toSwift('reset')
+    } else {
+      clearInterval(intervalRef.current)
+      runningRef.current = false
+      setRunning(false)
+      const ns = settings[mode] * 60
+      setSeconds(ns); secondsRef.current = ns
+    }
   }
 
   const switchMode = (newMode) => {
-    clearInterval(intervalRef.current)
-    runningRef.current = false
-    setRunning(false)
-    setJustFinished(false)
-    setMode(newMode)
-    const ns = settings[newMode] * 60
-    setSeconds(ns)
-    secondsRef.current = ns
+    if (isNative()) {
+      toSwift('setMode', { mode: newMode })
+    } else {
+      clearInterval(intervalRef.current)
+      runningRef.current = false
+      setRunning(false)
+      setMode(newMode); modeRef.current = newMode
+      const ns = settings[newMode] * 60
+      setSeconds(ns); secondsRef.current = ns; setTotal(ns)
+    }
   }
 
   const saveSettings = () => {
@@ -260,20 +254,21 @@ export default function App() {
       short: Math.max(1, Math.min(30, tempSettings.short)),
       long:  Math.max(1, Math.min(60, tempSettings.long)),
     }
-    setSettings(s)
-    settingsRef.current = s
-    clearInterval(intervalRef.current)
-    runningRef.current = false
-    setRunning(false)
-    const ns = s[mode] * 60
-    setSeconds(ns)
-    secondsRef.current = ns
+    setSettings(s); settingsRef.current = s
+    if (isNative()) {
+      toSwift('setDurations', s)
+    } else {
+      clearInterval(intervalRef.current)
+      runningRef.current = false
+      setRunning(false)
+      const ns = s[mode] * 60
+      setSeconds(ns); secondsRef.current = ns; setTotal(ns)
+    }
     setShowSettings(false)
   }
 
-  const total    = settings[mode] * 60
-  const progress = 1 - seconds / total
   const accent   = MODES[mode].color
+  const progress = total > 0 ? 1 - seconds / total : 0
   const mins     = Math.floor(seconds / 60)
   const secs     = seconds % 60
   const R        = 130
@@ -283,16 +278,24 @@ export default function App() {
 
   return (
     <div style={{
-      minHeight: '100svh',
-      background: BG,
+      minHeight: '100svh', background: BG,
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      fontFamily: "'DM Sans', sans-serif",
-      color: TEXT,
-      padding: '24px',
-      userSelect: 'none', WebkitUserSelect: 'none',
+      fontFamily: "'DM Sans', sans-serif", color: TEXT,
+      padding: '24px', userSelect: 'none', WebkitUserSelect: 'none',
       position: 'relative', overflow: 'hidden',
     }}>
+
+      {/* Alert banner */}
+      {alert && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0,
+          background: alert.color, color: BG, padding: '16px 24px',
+          textAlign: 'center', fontFamily: "'DM Sans', sans-serif",
+          fontSize: 14, fontWeight: 600, letterSpacing: '0.08em',
+          textTransform: 'uppercase', zIndex: 200,
+        }}>{alert.message}</div>
+      )}
 
       {/* Ambient glow */}
       <div style={{
@@ -356,8 +359,7 @@ export default function App() {
         }}>
           <div style={{
             fontFamily: "'DM Mono', monospace", fontSize: 70, fontWeight: 300,
-            letterSpacing: '0.02em', lineHeight: 1,
-            color: justFinished ? accent : TEXT, transition: 'color 0.5s ease',
+            letterSpacing: '0.02em', lineHeight: 1, color: TEXT,
           }}>
             {pad(mins)}
             <span style={{ opacity: running ? 1 : 0.2, transition: 'opacity 0.4s' }}>:</span>
@@ -389,7 +391,6 @@ export default function App() {
           ...btn, width: 44, height: 44, borderRadius: '50%',
           background: '#122540', border: '1px solid #2A4A6A', color: '#6A9ABB', fontSize: 18,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'all 0.2s',
         }}>↺</button>
 
         <button onClick={handleStartPause} style={{
@@ -406,29 +407,8 @@ export default function App() {
           ...btn, width: 44, height: 44, borderRadius: '50%',
           background: '#122540', border: '1px solid #2A4A6A', color: '#6A9ABB', fontSize: 16,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'all 0.2s',
         }}>⚙</button>
       </div>
-
-      {/* Alert banner */}
-      {alert && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0,
-          background: alert.color,
-          color: BG,
-          padding: '16px 24px',
-          textAlign: 'center',
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: 14,
-          fontWeight: 600,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          zIndex: 200,
-          animation: 'slideDown 0.3s ease',
-        }}>
-          {alert.message}
-        </div>
-      )}
 
       {/* Settings modal */}
       {showSettings && (
