@@ -77,8 +77,17 @@ export default function App() {
   useEffect(() => { secondsRef.current = seconds }, [seconds])
 
   const triggerAlarm = useCallback((message, color) => {
-    // Play audio file alarm
-    chime()
+    // Notify native iOS wrapper if available
+    try {
+      if (window.webkit?.messageHandlers?.alarm) {
+        window.webkit.messageHandlers.alarm.postMessage('ring')
+      } else {
+        // Fallback: play audio file directly in browser
+        chime()
+      }
+    } catch (e) {
+      chime()
+    }
     // Show visual alert banner
     setAlert({ message, color })
     setTimeout(() => setAlert(null), 4000)
