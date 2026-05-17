@@ -410,6 +410,20 @@ export default function App() {
         }}>⚙</button>
       </div>
 
+      {/* Footer */}
+      <div style={{
+        position: 'absolute',
+        bottom: 20,
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        fontSize: 10,
+        color: MUTED,
+        letterSpacing: '0.14em',
+      }}>
+        · by Signal & Seed ·
+      </div>
+
       {/* Settings modal */}
       {showSettings && (
         <div onClick={() => setShowSettings(false)} style={{
