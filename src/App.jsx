@@ -413,7 +413,8 @@ export default function App() {
       {/* Footer */}
       <div style={{
         position: 'absolute',
-        bottom: 20,
+        bottom: 'env(safe-area-inset-bottom, 20px)',
+        paddingBottom: 16,
         left: 0,
         right: 0,
         textAlign: 'center',
