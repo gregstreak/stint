@@ -412,15 +412,18 @@ export default function App() {
 
       {/* Footer */}
       <div style={{
-        position: 'absolute',
-        bottom: 'env(safe-area-inset-bottom, 20px)',
-        paddingBottom: 16,
+        position: 'fixed',
+        bottom: 0,
         left: 0,
         right: 0,
+        paddingBottom: 24,
+        paddingTop: 8,
         textAlign: 'center',
         fontSize: 10,
         color: MUTED,
         letterSpacing: '0.14em',
+        zIndex: 10,
+        background: 'transparent',
       }}>
         · by Signal & Seed ·
       </div>
